@@ -8,6 +8,7 @@ from fastapi import FastAPI, File, UploadFile, Form, WebSocket, WebSocketDisconn
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List
 from pydantic import BaseModel
+from pydantic import ValidationError
 import asyncio
 import json
 from fastapi.security.api_key import APIKeyHeader
@@ -24,9 +25,9 @@ VALID_API_KEYS = {"123"}
 
 async def get_api_key_from_websocket(websocket: WebSocket):
     for header in websocket.headers.raw:
-        print("hi")
-        print(header[0].decode())
-        print(header[1].decode())
+        # print("hi")
+        # print(header[0].decode())
+        # print(header[1].decode())
         if header[0].decode().lower() == 'x-api-key':
             api_key = header[1].decode()
             if api_key in VALID_API_KEYS:
@@ -73,12 +74,16 @@ async def websocket_endpoint(websocket: WebSocket):
             # For example, you can send back a confirmation message
             response = {"message": "Payload received", "question": payload.dict()['question'],"answer":"dummy generated answer"}
             await websocket.send_json(response)
+        except ValidationError as e:
+            # Send back a detailed error message if validation fails
+            error_messages = e.errors()
+            await websocket.send_text(f"Error: QuestionRequest validation failed: {error_messages}")
         except json.JSONDecodeError:
             # If error in decoding JSON, send an error message back to client
             await websocket.send_text("Error: Please send a valid JSON payload.")
-        except Exception as e:
+        except WebSocketDisconnect:
             # Close the connection if there's an error or if the client disconnects
-            await websocket.close(code=1000)
+            #await websocket.close(code=1000)
             break
 
 
